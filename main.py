@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from models import PersonCreate, RelationshipCreate
+from database import get_recommendations_for
 
 load_dotenv()
 
@@ -90,3 +91,13 @@ async def create_relationship(rel: RelationshipCreate):
         )
 
     return {"message": f"Relación {rel.type} creada entre {rel.from_person} y {rel.to_person}"}
+
+
+# --- Endpoint para obtener la recomendación ---
+@app.get("/recommendations/{name}")
+def get_recommendations(name: str):
+    try:
+        recommendations = get_recommendations_for(name)
+        return {"recommendations": recommendations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
