@@ -20,3 +20,7 @@ class RelationshipCreate(BaseModel):
     type: Literal["FRIEND", "DATED", "INTERACTED_WITH"]
     interaction_type: Optional[str] = None  # solo si INTERACTED_WITH
     timestamp: Optional[datetime] = None    # solo si INTERACTED_WITH
+
+class InterestCreate(BaseModel):
+    from_person: str
+    to_person: str

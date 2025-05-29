@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from neo4j import GraphDatabase
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
-from models import PersonCreate, RelationshipCreate
-from database import get_recommendations_for
+from models import PersonCreate, RelationshipCreate,InterestCreate
+from database import get_recommendations_for,path_to_person
 
 load_dotenv()
 
@@ -99,5 +99,52 @@ def get_recommendations(name: str):
     try:
         recommendations = get_recommendations_for(name)
         return {"recommendations": recommendations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# --- Endpoint para marcar interés ---
+@app.post("/interest/")
+async def express_interest(interest: InterestCreate):
+    query = """
+    MATCH (a:Person {name: $from_name}), (b:Person {name: $to_name})
+    MERGE (a)-[r:INTERESTED_IN]->(b)
+    RETURN a, b
+    """
+    with driver.session() as session:
+        session.run(query, from_name=interest.from_person, to_name=interest.to_person)
+
+    # Ahora chequeamos si hay interés mutuo para marcar un "match"
+    match_check_query = """
+    MATCH (a:Person {name: $from_name})-[:INTERESTED_IN]->(b:Person {name: $to_name}),
+          (b)-[:INTERESTED_IN]->(a)
+    RETURN a, b
+    """
+    with driver.session() as session:
+        result = session.run(match_check_query, from_name=interest.from_person, to_name=interest.to_person)
+        if result.single():
+            return {"message": f"¡Es un match entre {interest.from_person} y {interest.to_person}!"}
+
+    return {"message": f"{interest.from_person} ha mostrado interés en {interest.to_person}."}
+
+
+# --- Endpoint para mostrar matches ---
+@app.get("/matches/{name}")
+async def get_matches(name: str):
+    query = """
+    MATCH (a:Person {name: $name})-[:INTERESTED_IN]->(b:Person),
+          (b)-[:INTERESTED_IN]->(a)
+    RETURN b.name AS name, b.age AS age, b.gender AS gender, b.interests AS interests
+    """
+    with driver.session() as session:
+        result = session.run(query, name=name)
+        return [record.data() for record in result]
+    
+
+# --- Endpoint para mostrar el camino más corto hacia la persona que te interesa. ---
+@app.get("/path-to/{from_name}/{to_name}")
+def get_path_to_person(from_name: str, to_name: str):  
+    try:
+        path = path_to_person(from_name, to_name) 
+        return path
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
