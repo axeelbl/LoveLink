@@ -1,10 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from neo4j import GraphDatabase
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
-from models import PersonCreate, RelationshipCreate,InterestCreate
-from database import get_recommendations_for,path_to_person
+from models import PersonCreate, RelationshipCreate, InterestCreate
+from database import get_recommendations_for, path_to_person
 
 load_dotenv()
 
@@ -16,9 +19,16 @@ driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
 app = FastAPI()
 
+# Soporte para archivos estáticos y plantillas
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-# --- Endpoint para obtener todas las personas en la base de datos.  ---
+# --- Endpoint para obtener todas las personas en la base de datos. ---
 @app.get("/persons/")
 async def list_persons():
     query = "MATCH (p:Person) RETURN p"
@@ -27,7 +37,8 @@ async def list_persons():
         people = [record["p"] for record in result]
     return people
 
-# --- Endpoint para para ver las relaciones de una persona específica.  ---
+
+# --- Endpoint para para ver las relaciones de una persona específica. ---
 @app.get("/person/{name}/relationships")
 async def get_relationships(name: str):
     query = """
@@ -53,13 +64,14 @@ async def create_person(person: PersonCreate):
     CREATE (:Person {name: $name, age: $age, gender: $gender, interests: $interests})
     """
     with driver.session() as session:
-        session.run(query, 
-            name=person.name, 
-            age=person.age, 
-            gender=person.gender, 
+        session.run(query,
+            name=person.name,
+            age=person.age,
+            gender=person.gender,
             interests=person.interests
         )
     return {"message": f"Persona {person.name} creada."}
+
 
 # --- Endpoint para crear una relación ---
 @app.post("/relationship/")
@@ -93,7 +105,7 @@ async def create_relationship(rel: RelationshipCreate):
     return {"message": f"Relación {rel.type} creada entre {rel.from_person} y {rel.to_person}"}
 
 
-# --- Endpoint para obtener la recomendación ---
+# --- Endpoint para obtener recomendaciones ---
 @app.get("/recommendations/{name}")
 def get_recommendations(name: str):
     try:
@@ -101,7 +113,8 @@ def get_recommendations(name: str):
         return {"recommendations": recommendations}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 # --- Endpoint para marcar interés ---
 @app.post("/interest/")
 async def express_interest(interest: InterestCreate):
@@ -113,7 +126,6 @@ async def express_interest(interest: InterestCreate):
     with driver.session() as session:
         session.run(query, from_name=interest.from_person, to_name=interest.to_person)
 
-    # Ahora chequeamos si hay interés mutuo para marcar un "match"
     match_check_query = """
     MATCH (a:Person {name: $from_name})-[:INTERESTED_IN]->(b:Person {name: $to_name}),
           (b)-[:INTERESTED_IN]->(a)
@@ -138,13 +150,13 @@ async def get_matches(name: str):
     with driver.session() as session:
         result = session.run(query, name=name)
         return [record.data() for record in result]
-    
 
-# --- Endpoint para mostrar el camino más corto hacia la persona que te interesa. ---
+
+# --- Endpoint para mostrar el camino más corto hacia otra persona ---
 @app.get("/path-to/{from_name}/{to_name}")
-def get_path_to_person(from_name: str, to_name: str):  
+def get_path_to_person(from_name: str, to_name: str):
     try:
-        path = path_to_person(from_name, to_name) 
+        path = path_to_person(from_name, to_name)
         return path
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
