@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from neo4j import GraphDatabase
 from pydantic import BaseModel, EmailStr
 import os
@@ -12,6 +12,7 @@ from auth.users_db import create_user
 from auth.login import login_user
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import decode_access_token
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 load_dotenv()
@@ -24,7 +25,23 @@ driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
 app = FastAPI()
 
-# Soporte para archivos estáticos y plantillas
+#FRONTEND
+
+# Middleware para proteger el acceso a /
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/":
+            token = request.cookies.get("access_token")
+            if not token:
+                return RedirectResponse("/login-page")
+            try:
+                decode_access_token(token)
+            except Exception:
+                return RedirectResponse("/login-page")
+        return await call_next(request)
+
+app.add_middleware(AuthMiddleware)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -32,6 +49,17 @@ templates = Jinja2Templates(directory="templates")
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/login-page", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/register-page", response_class=HTMLResponse)
+def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+
+
+#FUNCIONES API-BACKEND
 
 # --- Endpoint para obtener todas las personas en la base de datos. ---
 @app.get("/persons/")
@@ -151,7 +179,7 @@ def get_path_to_person(from_name: str, to_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Endpoint para registranos ---
+# --- Endpoint para registrarnos ---
 @app.post("/register")
 def register(user: UserCreate):
     try:
@@ -171,3 +199,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/me")
 def get_current_user(token_data: dict = Depends(decode_access_token)):
     return {"email": token_data["sub"], "name": token_data.get("name")}
+
+# --- Endpoint para cerrar sesión ---
+@app.get("/logout")
+def logout():
+    response = RedirectResponse(url="/login-page", status_code=303)
+    response.delete_cookie("access_token")
+    return response

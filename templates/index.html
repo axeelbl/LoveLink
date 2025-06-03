@@ -1,27 +1,35 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>LoveLink</title>
-  <link rel="stylesheet" href="/static/styles.css" />
-  <script defer src="/static/script.js"></script>
-</head>
-<body>
-  <h1>💘 LoveLink</h1>
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoveLink</title>
 
-  <section>
-    <h2>🔍 Buscar recomendaciones</h2>
-    <input id="rec-name" placeholder="Tu nombre" />
-    <button onclick="getRecommendations()">Ver recomendaciones</button>
-    <div id="recommendation-list" class="card-container"></div>
-  </section>
+    <!-- Carga el CSS al estilo auth.css -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css" />
 
-  <section>
-    <h2>🧭 Camino hacia alguien</h2>
-    <input id="from-name" placeholder="Desde" />
-    <input id="to-name" placeholder="Hasta" />
-    <button onclick="getPath()">Buscar camino</button>
-    <div id="path-results" class="path-container"></div>
-  </section>
-</body>
-</html>
+    <script defer src="/static/script.js"></script>
+  </head>
+  <body>
+    <h1>💘 LoveLink</h1>
+    <button onclick="logout()" style="position: absolute; top: 20px; right: 20px;">Cerrar sesión</button>
+
+    <section>
+      <h2>🔍 Buscar recomendaciones</h2>
+      <input id="rec-name" placeholder="Tu nombre" />
+      <button onclick="getRecommendations()">Ver recomendaciones</button>
+      <div id="recommendation-list" class="card-container"></div>
+    </section>
+
+    <section>
+      <h2>🧭 Camino hacia alguien</h2>
+      <input id="from-name" placeholder="Desde" />
+      <input id="to-name" placeholder="Hasta" />
+      <button onclick="getPath()">Buscar camino</button>
+      <div id="path-results" class="path-container"></div>
+    </section>
+  </body>
+  </html>

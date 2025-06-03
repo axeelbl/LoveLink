@@ -1,6 +1,8 @@
 async function getRecommendations() {
   const name = document.getElementById("rec-name").value;
-  const res = await fetch(`/recommendations/${name}`);
+  const res = await fetch(`/recommendations/${name}`, {
+    credentials: "include"
+  });
   const data = await res.json();
 
   const list = document.getElementById("recommendation-list");
@@ -13,12 +15,11 @@ async function getRecommendations() {
     if (typeof person === "string") {
       card.textContent = person;
     } else {
-      card.innerHTML = `
-        <strong>${person.name}</strong><br>
+      card.innerHTML =
+        `<strong>${person.name}</strong><br>
         Edad: ${person.age}<br>
         Género: ${person.gender}<br>
-        Intereses: ${person.interests.join(", ")}
-      `;
+        Intereses: ${person.interests.join(", ")}`;
     }
 
     list.appendChild(card);
@@ -28,7 +29,9 @@ async function getRecommendations() {
 async function getPath() {
   const from = document.getElementById("from-name").value;
   const to = document.getElementById("to-name").value;
-  const res = await fetch(`/path-to/${from}/${to}`);
+  const res = await fetch(`/path-to/${from}/${to}`, {
+    credentials: "include"
+  });
   const data = await res.json();
 
   const list = document.getElementById("path-results");
@@ -46,5 +49,14 @@ async function getPath() {
       arrow.innerHTML = `→ <em>${data.types[i]}</em>`;
       list.appendChild(arrow);
     }
+  });
+}
+
+function logout() {
+  fetch("/logout", {
+    method: "GET",
+    credentials: "include"
+  }).then(() => {
+    window.location.href = "/login-page";
   });
 }
