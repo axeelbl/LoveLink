@@ -1,21 +1,93 @@
-  <!DOCTYPE html>
-  <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LoveLink</title>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoveLink</title>
 
-    <!-- Carga el CSS al estilo auth.css -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css" />
+  <!-- Carga fuente y estilos -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/script.js"></script>
 
-    <script defer src="/static/script.js"></script>
-  </head>
-  <body>
-    <h1>💘 LoveLink</h1>
-    <button onclick="logout()" style="position: absolute; top: 20px; right: 20px;">Cerrar sesión</button>
+  <style>
+    .container {
+      max-width: 1500px;
+      margin: 10px auto 0;
+      background-color: rgba(59, 58, 58, 0.689);
+      padding: px 30px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(15, 15, 15, 0.888);
+      box-shadow: 0 0 40px rgba(8, 7, 16, 0.6);
+    }
+
+    h2 {
+      color: #ffffff;
+      font-size: 22px;
+      margin-top: 20px;
+    }
+
+    .background {
+      width: 430px;
+      height: 520px;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      left: 50%;
+      top: 50%;
+      z-index: -1;
+    }
+
+    .background .shape {
+      height: 200px;
+      width: 200px;
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .shape:first-child {
+      background: linear-gradient(#1845ad, #23a2f6);
+      left: -80px;
+      top: -80px;
+    }
+
+    .shape:last-child {
+      background: linear-gradient(to right, #ff512f, #f09819);
+      right: -30px;
+      bottom: -80px;
+    }
+
+    .logout-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 10px 16px;
+      background-color: #ffffff;
+      color: #080710;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="background">
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+
+  <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
+
+  <div class="container">
+    <h1 style="color:#ffffff; text-align:center; margin-bottom:20px;">💘 LoveLink</h1>
 
     <section>
       <h2>🔍 Buscar recomendaciones</h2>
@@ -31,5 +103,6 @@
       <button onclick="getPath()">Buscar camino</button>
       <div id="path-results" class="path-container"></div>
     </section>
-  </body>
-  </html>
+  </div>
+</body>
+</html>
