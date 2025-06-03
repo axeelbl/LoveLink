@@ -1,13 +1,7 @@
 # models.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Literal, Optional
 from datetime import datetime
-
-class PersonCreate(BaseModel):
-    name: str
-    age: int
-    gender: str
-    interests: List[str]
 
 class RelationshipType(str):
     FRIEND = "FRIEND"
@@ -24,3 +18,12 @@ class RelationshipCreate(BaseModel):
 class InterestCreate(BaseModel):
     from_person: str
     to_person: str
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    age: int
+    gender: str
+    interests: List[str]

@@ -1,13 +1,18 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from neo4j import GraphDatabase
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 import os
 from dotenv import load_dotenv
-from models import PersonCreate, RelationshipCreate, InterestCreate
+from models import RelationshipCreate, InterestCreate,UserCreate
 from database import get_recommendations_for, path_to_person
+from auth.users_db import create_user
+from auth.login import login_user
+from fastapi.security import OAuth2PasswordRequestForm
+from auth.jwt_handler import decode_access_token
+
 
 load_dotenv()
 
@@ -56,21 +61,6 @@ async def get_relationships(name: str):
             })
     return relationships
 
-
-# --- Endpoint para crear una persona ---
-@app.post("/person/")
-async def create_person(person: PersonCreate):
-    query = """
-    CREATE (:Person {name: $name, age: $age, gender: $gender, interests: $interests})
-    """
-    with driver.session() as session:
-        session.run(query,
-            name=person.name,
-            age=person.age,
-            gender=person.gender,
-            interests=person.interests
-        )
-    return {"message": f"Persona {person.name} creada."}
 
 
 # --- Endpoint para crear una relación ---
@@ -160,3 +150,24 @@ def get_path_to_person(from_name: str, to_name: str):
         return path
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoint para registranos ---
+@app.post("/register")
+def register(user: UserCreate):
+    try:
+        create_user(driver, user.email, user.password, user.name, user.age, user.gender, user.interests)
+        return {"message": "Usuario creado correctamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+    
+# --- Endpoint para iniciar sesión ---
+@app.post("/login")
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    return login_user(form_data, driver)
+
+# --- Endpoint para obtener la información del usuario que ha iniciado sesión ---
+@app.get("/me")
+def get_current_user(token_data: dict = Depends(decode_access_token)):
+    return {"email": token_data["sub"], "name": token_data.get("name")}
