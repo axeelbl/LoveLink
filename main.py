@@ -1,7 +1,10 @@
 #main.py
 
-from typing import List
-from fastapi import Depends, FastAPI, HTTPException, Request, Response,status
+import json
+import shutil
+from typing import List, Optional
+import uuid
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile,status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,13 +14,15 @@ import os
 from dotenv import load_dotenv
 from models import RelationshipCreate, InterestCreate,UserCreate
 from database import get_recommendations_for, path_to_person
-from auth.users_db import create_user
+from auth.users_db import create_user,get_user_by_name
 from auth.login import login_user
 from fastapi.security import OAuth2PasswordRequestForm,OAuth2PasswordBearer
 from auth.jwt_handler import decode_access_token
 from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import JSONResponse
+from auth.jwt_handler import create_access_token, decode_access_token
+from fastapi import Request
 
-import logging
 
 load_dotenv()
 
@@ -28,6 +33,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 
 app = FastAPI()
 
@@ -50,6 +56,7 @@ app.add_middleware(AuthMiddleware)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -189,7 +196,7 @@ def get_path_to_person(from_name: str, to_name: str):
 @app.post("/register")
 def register(user: UserCreate):
     try:
-        create_user(driver, user.email, user.password, user.name, user.age, user.gender, user.interests)
+        create_user(driver, user.email, user.password, user.name, user.age, user.gender, user.interests, user.profile_picture or "")
         return {"message": "Usuario creado correctamente"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -243,8 +250,16 @@ def logout():
 def get_my_recommendations(user_node: dict = Depends(get_current_user)):
     name = user_node.get("name", "").strip()
     recommendations = get_recommendations_for(name)
-    return {"recommendations": recommendations}
 
+    enriched_recommendations = []
+    for person in recommendations:
+        full_user = get_user_by_name(driver, person["name"])
+        profile_picture = full_user.get("profile_picture", "") if full_user else ""
+        
+        person["profile_picture"] = profile_picture if profile_picture else "/static/default.jpg"
+        enriched_recommendations.append(person)
+
+    return {"recommendations": enriched_recommendations}
 
 # --- Endpoint nuevo con from_name desde usuario logeado y to_name como parámetro ---
 @app.get("/path-to-user/{to_name}")
@@ -286,7 +301,8 @@ def whoami(request: Request):
             "email": email,
             "age": user_node.get("age"),
             "gender": user_node.get("gender"),
-            "interests": user_node.get("interests", [])
+            "interests": user_node.get("interests", []),
+            "profile_picture": user_node.get("profile_picture", "")
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token or internal error")
@@ -297,9 +313,6 @@ def whoami(request: Request):
 def profile(request: Request):
     return templates.TemplateResponse("profile.html", {"request": request})
 
-from fastapi.responses import JSONResponse
-from auth.jwt_handler import create_access_token, decode_access_token
-from fastapi import Request
 
 # --- Endpoint para editar los datos del user ---
 class UserUpdate(BaseModel):
@@ -307,49 +320,61 @@ class UserUpdate(BaseModel):
     age: int
     gender: str
     interests: List[str]
+    profile_picture: Optional[str] = None
 
 @app.put("/update-profile")
-def update_profile(
+async def update_profile(
     request: Request,
-    data: UserUpdate,
-    user_data: dict = Depends(get_current_user)  # Usuario autenticado desde la cookie
+    name: str = Form(...),
+    age: int = Form(...),
+    gender: str = Form(...),
+    interests: str = Form(...),  # Viene como stringified JSON
+    profile_picture: Optional[UploadFile] = File(None),
+    user_data: dict = Depends(get_current_user)
 ):
     email = user_data.get("sub")
     if not email:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-    # Actualizar en la base de datos
+    interests_list = json.loads(interests)
+
+    # Guardar la imagen si existe
+    picture_url = ""
+    if profile_picture:
+        ext = os.path.splitext(profile_picture.filename)[1]
+        filename = f"{uuid.uuid4().hex}{ext}"
+        filepath = os.path.join("static/uploads", filename)
+
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(profile_picture.file, buffer)
+
+        picture_url = f"/static/uploads/{filename}"
+
     with driver.session() as session:
         result = session.run("""
             MATCH (p:Person {email: $email})
             SET p.name = $name,
                 p.age = $age,
                 p.gender = $gender,
-                p.interests = $interests
+                p.interests = $interests,
+                p.profile_picture = CASE WHEN $picture <> '' THEN $picture ELSE p.profile_picture END
             RETURN p
         """, {
             "email": email,
-            "name": data.name,
-            "age": data.age,
-            "gender": data.gender,
-            "interests": data.interests
+            "name": name,
+            "age": age,
+            "gender": gender,
+            "interests": interests_list,
+            "picture": picture_url
         })
         updated = result.single()
         if not updated:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    # Crear nuevo token con el nombre actualizado
-    new_token = create_access_token({"sub": email, "name": data.name})
+    # Crear nuevo token
+    new_token = create_access_token({"sub": email, "name": name})
 
-    # Devolver el nuevo token en la cookie
     response = JSONResponse({"message": "Perfil actualizado correctamente"})
-    response.set_cookie(
-        key="access_token",
-        value=new_token,
-        httponly=True,
-        samesite="lax",
-        secure=False  # Cambia a True si usas HTTPS
-    )
-
+    response.set_cookie(key="access_token", value=new_token, httponly=True, samesite="lax", secure=False)
     return response
 

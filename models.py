@@ -27,3 +27,4 @@ class UserCreate(BaseModel):
     age: int
     gender: str
     interests: List[str]
+    profile_picture: Optional[str] = None  # <---

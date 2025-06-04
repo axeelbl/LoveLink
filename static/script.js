@@ -18,11 +18,13 @@ async function getRecommendations() {
     if (typeof person === "string") {
       card.textContent = person;
     } else {
-      card.innerHTML =
-        `<strong>${person.name}</strong><br>
+      card.innerHTML = `
+        <img src="${person.profile_picture || "/static/default.jpg"}" alt="${person.name}" class="profile-img"><br>
+        <strong>${person.name}</strong><br>
         Edad: ${person.age}<br>
         Género: ${person.gender}<br>
-        Intereses: ${person.interests.join(", ")}`;
+        Intereses: ${person.interests.join(", ")}
+      `;
     }
 
     list.appendChild(card);
@@ -100,12 +102,16 @@ async function loadMyRecommendations() {
       if (typeof person === "string") {
         card.textContent = person;
       } else {
+        const profileImage = person.profile_picture || "/static/default.jpg";
+        const interests = Array.isArray(person.interests) ? person.interests.join(", ") : "No especificados";
+
         card.innerHTML = `
-          <strong>${person.name}</strong><br>
-          Edad: ${person.age}<br>
-          Género: ${person.gender}<br>
-          Intereses: ${person.interests.join(", ")}<br>
-          Motivo: ${person.reason}
+          <img src="${profileImage}" alt="Foto de ${person.name}" class="profile-img">
+          <h3>${person.name}</h3>
+          <p><strong>Edad:</strong> ${person.age}</p>
+          <p><strong>Género:</strong> ${person.gender}</p>
+          <p><strong>Intereses:</strong> ${interests}</p>
+          <p><strong>Motivo:</strong> ${person.reason}</p>
         `;
       }
 
@@ -116,6 +122,7 @@ async function loadMyRecommendations() {
     console.error("Error en la petición a /user-logged-recommendations:", error);
   }
 }
+
 
 
 // Función para leer cookies
