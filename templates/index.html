@@ -1,3 +1,4 @@
+<!--index.html (Home Page)-->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -91,9 +92,14 @@
 
     <section>
       <h2>🔍 Buscar recomendaciones</h2>
-      <input id="rec-name" placeholder="Tu nombre" />
-      <button onclick="getRecommendations()">Ver recomendaciones</button>
-      <div id="recommendation-list" class="card-container"></div>
+      <input id="rec-name" placeholder="Nombre de usuario" />
+      <button onclick="getRecommendations()">Buscar</button>
+      <div id="search-recommendation-list" class="card-container"></div>
+    </section>
+
+    <section>
+      <h2>❤️ Mis recomendaciones</h2>
+      <div id="my-recommendation-list" class="card-container"></div>
     </section>
 
     <section>

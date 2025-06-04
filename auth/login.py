@@ -16,16 +16,6 @@ def login_user(form_data: OAuth2PasswordRequestForm, driver: Driver):
         )
 
     token = create_access_token({"sub": user["email"], "name": user["name"]})
-
-    # Guardar el token como cookie segura
-    response = JSONResponse(content={"message": "Login correcto"})
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,  # Evita acceso vía JS
-        secure=False,   
-        samesite="lax"
-    )
-    return response
+    return {"access_token": token}
 
 

@@ -1,8 +1,10 @@
-from fastapi import Depends, FastAPI, HTTPException, Request
+#main.py
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response,status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
-from neo4j import GraphDatabase
+from neo4j import Driver, GraphDatabase
 from pydantic import BaseModel, EmailStr
 import os
 from dotenv import load_dotenv
@@ -10,9 +12,18 @@ from models import RelationshipCreate, InterestCreate,UserCreate
 from database import get_recommendations_for, path_to_person
 from auth.users_db import create_user
 from auth.login import login_user
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm,OAuth2PasswordBearer
 from auth.jwt_handler import decode_access_token
 from starlette.middleware.base import BaseHTTPMiddleware
+
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -22,6 +33,8 @@ NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI()
 
@@ -192,13 +205,36 @@ def register(user: UserCreate):
     
 # --- Endpoint para iniciar sesión ---
 @app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    return login_user(form_data, driver)
+def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
+    user_data = login_user(form_data, driver)
+
+    token = user_data["access_token"]
+
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="Lax",
+        secure=False  # Cambia a True si usas HTTPS
+    )
+
+    return {"message": "login_success"}
+
 
 # --- Endpoint para obtener la información del usuario que ha iniciado sesión ---
+def get_current_user(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se encontró token en las cookies"
+        )
+    return decode_access_token(token)
+
 @app.get("/me")
-def get_current_user(token_data: dict = Depends(decode_access_token)):
-    return {"email": token_data["sub"], "name": token_data.get("name")}
+def get_current_user_info(user_data: dict = Depends(get_current_user)):
+    return {"email": user_data["sub"], "name": user_data.get("name")}
+
 
 # --- Endpoint para cerrar sesión ---
 @app.get("/logout")
@@ -206,3 +242,54 @@ def logout():
     response = RedirectResponse(url="/login-page", status_code=303)
     response.delete_cookie("access_token")
     return response
+
+
+
+# --- Endpoint para coger las recomendaciones del usuario logeado ---
+@app.get("/user-logged-recommendations")
+def get_my_recommendations(user_node: dict = Depends(get_current_user)):
+    name = user_node.get("name", "").strip()
+    logger.info(f"✅ name desde token: {repr(name)}")
+    
+    recommendations = get_recommendations_for(name)
+    return {"recommendations": recommendations}
+
+
+# --- Endpoint para saber quien soy ---
+
+def get_user_by_email(driver: Driver, email: str):
+    with driver.session() as session:
+        result = session.run("MATCH (p:Person {email: $email}) RETURN p", email=email)
+        record = result.single()
+        if record:
+            return record["p"]
+        return None
+
+
+@app.get("/whoami")
+def whoami(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        logger.warning("⚠️ No token en cookies")
+        raise HTTPException(status_code=401, detail="No token provided")
+
+    try:
+        payload = decode_access_token(token)
+        email = payload.get("sub")
+        logger.info(f"🔑 Email del token: {email}")
+
+        user_node = get_user_by_email(driver, email)
+        if not user_node:
+            logger.warning("❌ Usuario no encontrado en Neo4j")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        name = user_node.get("name")
+        logger.info(f"👤 Usuario identificado: {name}")
+
+        return {"name": name, "email": email}
+    except Exception as e:
+        logger.error(f"❌ Error al obtener el usuario: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token or internal error")
+
+
+

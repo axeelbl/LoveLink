@@ -77,3 +77,5 @@ def get_user_by_email(driver: Driver, email: str):
 # 🔐 Verificar contraseña (plain vs hashed)
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
