@@ -4,10 +4,10 @@ import json
 import shutil
 from typing import List, Optional
 import uuid
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile,status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Path, Request, Response, UploadFile,status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from neo4j import Driver, GraphDatabase
 from pydantic import BaseModel, EmailStr
 import os
@@ -115,12 +115,14 @@ async def create_relationship(rel: RelationshipCreate):
     """
 
     if rel.type == "FRIEND":
-        relation_query = "CREATE (a)-[:FRIEND]->(b)"
+        relation_query = "MERGE (a)-[:FRIEND]->(b)"
     elif rel.type == "DATED":
-        relation_query = "CREATE (a)-[:DATED]->(b)"
+        relation_query = "MERGE (a)-[:DATED]->(b)"
     elif rel.type == "INTERACTED_WITH":
         relation_query = """
-        CREATE (a)-[:INTERACTED_WITH {type: $interaction_type, timestamp: $timestamp}]->(b)
+        MERGE (a)-[r:INTERACTED_WITH]->(b)
+        ON CREATE SET r.type = $interaction_type, r.timestamp = $timestamp
+        ON MATCH SET r.timestamp = $timestamp  // actualizar timestamp si quieres
         """
     else:
         raise HTTPException(status_code=400, detail="Tipo de relación no soportado.")
@@ -378,3 +380,94 @@ async def update_profile(
     response.set_cookie(key="access_token", value=new_token, httponly=True, samesite="lax", secure=False)
     return response
 
+
+# --- Endpoint para buscar usuarios ---
+@app.get("/search_users")
+def search_users(query: str, request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No token provided")
+
+    payload = decode_access_token(token)
+    current_name = payload.get("name")
+
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (p:Person)
+            WHERE toLower(p.name) CONTAINS toLower($query)
+              AND p.name <> $current_name
+            RETURN p.name AS name, p.email AS email, p.profile_picture AS profile_picture
+            LIMIT 10
+        """, {"query": query, "current_name": current_name})
+
+        return [
+            {
+                "name": record["name"],
+                "email": record["email"],
+                "profile_picture": record.get("profile_picture") or "/static/default.jpg"
+            }
+            for record in result
+        ]
+
+# --- Endpoint para buscar relaciones de usuario logeado ---
+@app.get("/my_relationships")
+def get_my_relationships(user_data: dict = Depends(get_current_user)):
+    name = user_data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Nombre de usuario no encontrado en el token")
+
+    query = """
+    MATCH (p:Person {name: $name})-[r]->(other)
+    RETURN type(r) AS type, r, other.name AS other_name
+    """
+    with driver.session() as session:
+        result = session.run(query, name=name)
+        relationships = []
+        for record in result:
+            relationships.append({
+                "type": record["type"],
+                "details": dict(record["r"]),
+                "with": record["other_name"]
+            })
+    return relationships
+
+# --- Endpoint para acceder a relaciones ---
+@app.get("/mis-relaciones")
+def get_mis_relaciones_page():
+    return FileResponse("templates/mis-relaciones.html")
+
+# --- Endpoint para borrar relaciones ---
+@app.post("/relationship/delete")
+def delete_relationship(data: dict):
+    from_person = data.get("from_person")
+    to_person = data.get("to_person")
+    rel_type = data.get("type")
+
+    if not from_person or not to_person or not rel_type:
+        raise HTTPException(status_code=400, detail="Faltan datos")
+
+    query = f"""
+    MATCH (a:Person {{name: $from}})-[r:{rel_type}]->(b:Person {{name: $to}})
+    DELETE r
+    """
+    with driver.session() as session:
+        session.run(query, {"from": from_person, "to": to_person})
+
+    return {"message": f"Relación {rel_type} eliminada con {to_person}."}
+
+# --- Endpoint para obtener datos publicos de una persona ---
+@app.get("/person/{name}")
+def get_person_by_name(name: str = Path(...)):
+    with driver.session() as session:
+        result = session.run("MATCH (p:Person {name: $name}) RETURN p", name=name)
+        record = result.single()
+        if not record:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        p = record["p"]
+        return {
+            "name": p.get("name"),
+            "gender": p.get("gender", "No especificado"),
+            "interests": p.get("interests", []),
+            "profile_picture": p.get("profile_picture", "")
+        }

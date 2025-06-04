@@ -212,3 +212,23 @@ button[onclick="logout()"]:hover {
   border-radius: 50%;
   margin-bottom: 10px;
 }
+
+.toast {
+  background-color: #333;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  opacity: 0.9;
+  font-family: Arial, sans-serif;
+  animation: fadein 0.3s, fadeout 0.3s 2.7s;
+}
+
+@keyframes fadein {
+  from {opacity: 0; transform: translateY(10px);}
+  to {opacity: 0.9; transform: translateY(0);}
+}
+@keyframes fadeout {
+  from {opacity: 0.9;}
+  to {opacity: 0;}
+}

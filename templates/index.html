@@ -106,6 +106,20 @@
 </head>
 
 <body>
+
+  <!-- Contenedor para los toasts -->
+  <div id="toast-container" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 300px;
+  "></div>
+
+
   <div class="background">
     <div class="shape"></div>
     <div class="shape"></div>
@@ -113,6 +127,7 @@
 
   <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
   <button class="profile-btn" onclick="goToProfile()">👤 Mi perfil</button>
+  <button class="profile-btn" style="left: 150px;" onclick="goToMyRelationships()">🤝 Mis relaciones</button>
 
   <div class="container">
     <h1 style="color:#ffffff; text-align:center; margin-bottom:20px;">💘 LoveLink</h1>
@@ -142,6 +157,13 @@
       <input id="to-name-logged" placeholder="Nombre de la persona" />
       <button onclick="getPathFromLoggedUser()">Buscar camino desde mí</button>
       <div id="path-results-logged" class="path-container"></div>
+    </section>
+
+    <section>
+      <h2>🔎 Buscar otros usuarios</h2>
+      <input id="search-query" placeholder="Introduce nombre..." />
+      <button onclick="searchUsers()">Buscar</button>
+      <div id="search-users-results" class="card-container"></div>
     </section>
 
 

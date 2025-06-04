@@ -106,7 +106,8 @@ async function loadMyRecommendations() {
         const interests = Array.isArray(person.interests) ? person.interests.join(", ") : "No especificados";
 
         card.innerHTML = `
-          <img src="${profileImage}" alt="Foto de ${person.name}" class="profile-img">
+          <img src="${profileImage}" alt="Foto de ${person.name}" class="profile-img"
+            onerror="this.onerror=null; this.src='/static/default.jpg';" />
           <h3>${person.name}</h3>
           <p><strong>Edad:</strong> ${person.age}</p>
           <p><strong>Género:</strong> ${person.gender}</p>
@@ -159,7 +160,7 @@ function renderPath(data) {
 async function getPathFromLoggedUser() {
   const to = document.getElementById('to-name-logged').value.trim();
   if (!to) {
-    alert('Por favor, introduce el nombre de la persona.');
+    showToast('Por favor, introduce el nombre de la persona.');
     return;
   }
 
@@ -189,4 +190,188 @@ async function getPathFromLoggedUser() {
 // Función para ir a tu perfil.
 function goToProfile() {
   window.location.href = "/profile";
+}
+
+
+//Funciones para enviar relaciones
+async function getCurrentUserName() {
+  const res = await fetch("/me", { credentials: "include" });
+  if (!res.ok) throw new Error("No logueado");
+  const data = await res.json();
+  return data.name; 
+}
+
+async function sendRelationship(toName, type) {
+  try {
+    const me = await getCurrentUserName();
+    const res = await fetch("/relationship/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from_person: me,
+        to_person: toName,
+        type: type
+      })
+    });
+
+    const data = await res.json();
+    showToast(data.message);
+
+    // Vuelve a buscar para actualizar la tarjeta del usuario
+    await searchUsers();
+  } catch (err) {
+    showToast("Error al crear relación.");
+  }
+}
+
+async function sendInterest(toName) {
+  try {
+    const me = await getCurrentUserName();
+    const res = await fetch("/interest/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from_person: me,
+        to_person: toName
+      })
+    });
+
+    const data = await res.json();
+    showToast(data.message);
+  } catch (err) {
+    showToast("Error al expresar interés.");
+  }
+}
+
+async function sendInteraction(toName, interactionType = "mensaje") {
+  try {
+    const me = await getCurrentUserName();
+    const res = await fetch("/relationship/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from_person: me,
+        to_person: toName,
+        type: "INTERACTED_WITH",
+        interaction_type: interactionType,
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    const data = await res.json();
+    showToast(data.message);
+  } catch (err) {
+    showToast("Error al registrar interacción.");
+  }
+}
+
+
+// Función para buscar users
+async function searchUsers() {
+  const query = document.getElementById("search-query").value.trim();
+  if (!query) {
+    showToast("Introduce un nombre para buscar.");
+    return;
+  }
+
+  const res = await fetch(`/search_users?query=${encodeURIComponent(query)}`, {
+    credentials: "include"
+  });
+
+  const data = await res.json();
+  const list = document.getElementById("search-users-results");
+  list.innerHTML = "";
+
+  if (data.length === 0) {
+    list.innerHTML = "<p style='color:white;'>No se encontraron usuarios.</p>";
+    return;
+  }
+
+  data.forEach(user => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    let relationButtons = '';
+
+    if (user.relationship === "FRIEND") {
+      relationButtons += `<button style="background-color:red;" onclick="cancelRelationship('${user.name}', 'FRIEND')">Cancelar amistad</button>`;
+    } else {
+      relationButtons += `<button onclick="sendRelationship('${user.name}', 'FRIEND')">Amistad</button>`;
+    }
+
+    if (user.relationship === "DATED") {
+      relationButtons += `<button style="background-color:red;" onclick="cancelRelationship('${user.name}', 'DATED')">Cancelar pareja</button>`;
+    } else {
+      relationButtons += `<button onclick="sendRelationship('${user.name}', 'DATED')">Pareja</button>`;
+    }
+
+    card.innerHTML = `
+      <img src="${user.profile_picture}" alt="Foto de ${user.name}" class="profile-img">
+      <h3>${user.name}</h3>
+      <p>${user.email}</p>
+      ${relationButtons}
+      <button onclick="sendInterest('${user.name}')">Me interesa</button>
+      <button onclick="sendInteraction('${user.name}', 'mensaje')">Interacción</button>
+    `;
+
+    list.appendChild(card);
+  });
+
+  await loadMyRecommendations();
+
+}
+
+// Función para mostar Toast
+function showToast(message) {
+  const container = document.getElementById("toast-container");
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  // Desaparece y elimina después de 3 segundos
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => container.removeChild(toast), 300);
+  }, 3000);
+}
+
+// Función para cancelar relaciones
+async function cancelRelationship(toName, type) {
+  try {
+    const me = await getCurrentUserName();
+    const res = await fetch("/relationship/", {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from_person: me,
+        to_person: toName,
+        type: type
+      })
+    });
+
+    const data = await res.json();
+    showToast(data.message);
+
+    // Vuelve a buscar para actualizar la interfaz
+    await searchUsers();
+  } catch (err) {
+    showToast("Error al cancelar relación.");
+  }
+}
+// Función para ir a mis relaciones
+function goToMyRelationships() {
+  window.location.href = "mis-relaciones";
 }
