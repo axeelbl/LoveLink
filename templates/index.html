@@ -15,7 +15,7 @@
 
   <style>
     .container {
-      max-width: 1500px;
+      max-width: 1250px;
       margin: 10px auto 0;
       background-color: rgba(59, 58, 58, 0.689);
       padding: px 30px;
@@ -109,6 +109,15 @@
       <button onclick="getPath()">Buscar camino</button>
       <div id="path-results" class="path-container"></div>
     </section>
+
+    <section>
+      <h2>🧭 Encuentra tu camino hacia esa persona especial</h2>
+      <input id="to-name-logged" placeholder="Nombre de la persona" />
+      <button onclick="getPathFromLoggedUser()">Buscar camino desde mí</button>
+      <div id="path-results-logged" class="path-container"></div>
+    </section>
+
+
   </div>
 </body>
 </html>

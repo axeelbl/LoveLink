@@ -18,14 +18,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 import logging
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
-
-
 load_dotenv()
 
 NEO4J_URI = os.getenv("NEO4J_URI")
@@ -230,10 +222,10 @@ def get_current_user(request: Request):
             detail="No se encontró token en las cookies"
         )
     return decode_access_token(token)
-
 @app.get("/me")
 def get_current_user_info(user_data: dict = Depends(get_current_user)):
     return {"email": user_data["sub"], "name": user_data.get("name")}
+
 
 
 # --- Endpoint para cerrar sesión ---
@@ -249,14 +241,25 @@ def logout():
 @app.get("/user-logged-recommendations")
 def get_my_recommendations(user_node: dict = Depends(get_current_user)):
     name = user_node.get("name", "").strip()
-    logger.info(f"✅ name desde token: {repr(name)}")
-    
     recommendations = get_recommendations_for(name)
     return {"recommendations": recommendations}
 
 
-# --- Endpoint para saber quien soy ---
+# --- Endpoint nuevo con from_name desde usuario logeado y to_name como parámetro ---
+@app.get("/path-to-user/{to_name}")
+def get_path_from_logged_user(to_name: str, user_data: dict = Depends(get_current_user)):
+    from_name = user_data.get("name")
+    if not from_name:
+        raise HTTPException(status_code=400, detail="Usuario sin nombre válido en token")
+    try:
+        path = path_to_person(from_name, to_name)
+        return path
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+
+
+# --- Endpoint para saber quien soy (Cogiendo todos los datos reales de la database) ---
 def get_user_by_email(driver: Driver, email: str):
     with driver.session() as session:
         result = session.run("MATCH (p:Person {email: $email}) RETURN p", email=email)
@@ -264,31 +267,24 @@ def get_user_by_email(driver: Driver, email: str):
         if record:
             return record["p"]
         return None
-
-
 @app.get("/whoami")
 def whoami(request: Request):
     token = request.cookies.get("access_token")
     if not token:
-        logger.warning("⚠️ No token en cookies")
         raise HTTPException(status_code=401, detail="No token provided")
 
     try:
         payload = decode_access_token(token)
         email = payload.get("sub")
-        logger.info(f"🔑 Email del token: {email}")
 
         user_node = get_user_by_email(driver, email)
         if not user_node:
-            logger.warning("❌ Usuario no encontrado en Neo4j")
             raise HTTPException(status_code=404, detail="User not found")
 
         name = user_node.get("name")
-        logger.info(f"👤 Usuario identificado: {name}")
 
         return {"name": name, "email": email}
     except Exception as e:
-        logger.error(f"❌ Error al obtener el usuario: {e}")
         raise HTTPException(status_code=401, detail="Invalid token or internal error")
 
 

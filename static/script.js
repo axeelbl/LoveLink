@@ -118,13 +118,62 @@ async function loadMyRecommendations() {
 }
 
 
-
-
-
 // Función para leer cookies
 function getCookie(name) {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? match[2] : null;
 }
 
+// Función para que el user loggeado pueda buscar el camino.
+function renderPath(data) {
+  const list = document.getElementById("path-results-logged");
+  list.innerHTML = "";
 
+  // Comprobar que data.path existe y tiene contenido
+  if (!data.path || data.path.length === 0) {
+    list.textContent = "Usuario no encontrado.";
+    return;
+  }
+
+  data.path.forEach((name, i) => {
+    const node = document.createElement("div");
+    node.className = "path-node";
+    node.textContent = name;
+    list.appendChild(node);
+
+    if (i < data.types.length) {
+      const arrow = document.createElement("div");
+      arrow.className = "path-arrow";
+      arrow.innerHTML = `→ <em>${data.types[i]}</em>`;
+      list.appendChild(arrow);
+    }
+  });
+}
+async function getPathFromLoggedUser() {
+  const to = document.getElementById('to-name-logged').value.trim();
+  if (!to) {
+    alert('Por favor, introduce el nombre de la persona.');
+    return;
+  }
+
+  // Opcional: muestra mensaje mientras carga
+  document.getElementById('path-results-logged').innerHTML = 'Cargando camino...';
+
+  try {
+    const res = await fetch(`/path-to-user/${encodeURIComponent(to)}`, {
+      credentials: 'include'
+    });
+
+    if (!res.ok) {
+      throw new Error(`Error en la petición: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    // Aquí llama a la función que muestra el camino en pantalla
+    renderPath(data, 'path-results-logged');
+
+  } catch (error) {
+    document.getElementById('path-results-logged').innerHTML = `Error: ${error.message}`;
+  }
+}
