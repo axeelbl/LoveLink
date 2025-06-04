@@ -1,5 +1,6 @@
 #main.py
 
+from typing import List
 from fastapi import Depends, FastAPI, HTTPException, Request, Response,status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -276,16 +277,79 @@ def whoami(request: Request):
     try:
         payload = decode_access_token(token)
         email = payload.get("sub")
-
         user_node = get_user_by_email(driver, email)
         if not user_node:
             raise HTTPException(status_code=404, detail="User not found")
 
-        name = user_node.get("name")
-
-        return {"name": name, "email": email}
+        return {
+            "name": user_node.get("name"),
+            "email": email,
+            "age": user_node.get("age"),
+            "gender": user_node.get("gender"),
+            "interests": user_node.get("interests", [])
+        }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token or internal error")
 
 
+# --- Endpoint para ir al profile ---
+@app.get("/profile", response_class=HTMLResponse)
+def profile(request: Request):
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+from fastapi.responses import JSONResponse
+from auth.jwt_handler import create_access_token, decode_access_token
+from fastapi import Request
+
+# --- Endpoint para editar los datos del user ---
+class UserUpdate(BaseModel):
+    name: str
+    age: int
+    gender: str
+    interests: List[str]
+
+@app.put("/update-profile")
+def update_profile(
+    request: Request,
+    data: UserUpdate,
+    user_data: dict = Depends(get_current_user)  # Usuario autenticado desde la cookie
+):
+    email = user_data.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    # Actualizar en la base de datos
+    with driver.session() as session:
+        result = session.run("""
+            MATCH (p:Person {email: $email})
+            SET p.name = $name,
+                p.age = $age,
+                p.gender = $gender,
+                p.interests = $interests
+            RETURN p
+        """, {
+            "email": email,
+            "name": data.name,
+            "age": data.age,
+            "gender": data.gender,
+            "interests": data.interests
+        })
+        updated = result.single()
+        if not updated:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Crear nuevo token con el nombre actualizado
+    new_token = create_access_token({"sub": email, "name": data.name})
+
+    # Devolver el nuevo token en la cookie
+    response = JSONResponse({"message": "Perfil actualizado correctamente"})
+    response.set_cookie(
+        key="access_token",
+        value=new_token,
+        httponly=True,
+        samesite="lax",
+        secure=False  # Cambia a True si usas HTTPS
+    )
+
+    return response
 

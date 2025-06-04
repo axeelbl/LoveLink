@@ -177,3 +177,9 @@ async function getPathFromLoggedUser() {
     document.getElementById('path-results-logged').innerHTML = `Error: ${error.message}`;
   }
 }
+
+
+// Función para ir a tu perfil.
+function goToProfile() {
+  window.location.href = "/profile";
+}

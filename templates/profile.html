@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mi perfil - LoveLink</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #080710;
+      font-family: 'Poppins', sans-serif;
+      color: white;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 60px auto;
+      padding: 30px;
+      background-color: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border: none;
+      border-radius: 6px;
+      background-color: rgba(255, 255, 255, 0.07);
+      color: white;
+      font-size: 14px;
+    }
+
+    input:disabled {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: #ccc;
+    }
+
+    .interests-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .interest-btn {
+      padding: 10px 14px;
+      font-size: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .interest-btn:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .interest-btn.selected {
+      background-color: #23a2f6;
+      border-color: #1b87d0;
+      color: white;
+      font-weight: 600;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin-top: 25px;
+      background-color: #ffffff;
+      color: #080710;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>👤 Mi Perfil</h1>
+    <form id="edit-form">
+      <label for="user-name">Nombre:</label>
+      <input type="text" id="user-name" required />
+
+      <label for="user-email">Email:</label>
+      <input type="email" id="user-email" disabled />
+
+      <label for="user-age">Edad:</label>
+      <input type="number" id="user-age" required />
+
+      <label for="user-gender">Género:</label>
+      <select id="user-gender" required>
+        <option value="">Selecciona tu género</option>
+        <option value="Hombre">Hombre</option>
+        <option value="Mujer">Mujer</option>
+        <option value="Otro">Otro</option>
+      </select>
+
+      <label for="user-interests">Intereses:</label>
+      <div class="interests-container" id="user-interests"></div>
+
+      <button type="submit" class="btn">💾 Guardar cambios</button>
+    </form>
+
+    <button class="btn" onclick="goHome()">← Volver al inicio</button>
+  </div>
+
+  <script>
+    const interestList = [
+      "Música", "Cine", "Viajes", "Deporte", "Lectura",
+      "Cocina", "Tecnología", "Naturaleza", "Videojuegos", "Arte",
+      "Animales", "Fitness", "Moda", "Fotografía", "Idiomas"
+    ];
+
+    const interestsContainer = document.getElementById("user-interests");
+
+    function createInterestButtons(selectedInterests = []) {
+      interestsContainer.innerHTML = ""; // Clear existing
+      interestList.forEach(interest => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "interest-btn";
+        btn.textContent = interest;
+
+        if (selectedInterests.includes(interest.toLowerCase())) {
+          btn.classList.add("selected");
+        }
+
+        btn.addEventListener("click", () => {
+          btn.classList.toggle("selected");
+        });
+
+        interestsContainer.appendChild(btn);
+      });
+    }
+
+    async function loadUserData() {
+      try {
+        const res = await fetch("/whoami");
+        if (!res.ok) throw new Error("No autorizado");
+        const data = await res.json();
+
+        document.getElementById("user-name").value = data.name;
+        document.getElementById("user-email").value = data.email;
+        document.getElementById("user-age").value = data.age;
+        document.getElementById("user-gender").value = data.gender;
+
+        const selected = data.interests?.map(i => i.toLowerCase()) || [];
+        createInterestButtons(selected);
+      } catch (err) {
+        alert("Error al cargar tus datos.");
+        window.location.href = "/login-page";
+      }
+    }
+
+    async function updateUserData(event) {
+      event.preventDefault();
+      const selectedInterests = Array.from(document.querySelectorAll(".interest-btn.selected"))
+        .map(btn => btn.textContent);
+
+      const payload = {
+        name: document.getElementById("user-name").value,
+        age: parseInt(document.getElementById("user-age").value),
+        gender: document.getElementById("user-gender").value,
+        interests: selectedInterests
+      };
+
+      const res = await fetch("/update-profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        alert("¡Perfil actualizado correctamente!");
+      } else {
+        alert("Error al actualizar perfil.");
+      }
+    }
+
+    function goHome() {
+      window.location.href = "/";
+    }
+
+    document.getElementById("edit-form").addEventListener("submit", updateUserData);
+    loadUserData();
+  </script>
+</body>
+</html>
