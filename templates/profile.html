@@ -61,31 +61,62 @@
     .interests-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 30px; 
       margin-top: 10px;
+      justify-content: center; 
     }
 
     .interest-btn {
-      padding: 10px 14px;
-      font-size: 13px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 8px;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: #fff;
+      padding: 10px 18px;
+      font-size: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-radius: 20px;
+      background-color: rgba(255, 255, 255, 0.07);
+      color: #cfcfcf;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
+      flex: 0 1 auto; /* cambio aquí: quepa mejor y no se expanda tanto */
+      max-width: 140px;
+      text-align: center;
+      font-weight: 500;
+      position: relative;
+      min-width: 100px;
     }
 
     .interest-btn:hover {
-      background-color: rgba(255, 255, 255, 0.2);
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      transform: scale(1.05);
+      border-color: #fff;
     }
 
     .interest-btn.selected {
-      background-color: #23a2f6;
-      border-color: #1b87d0;
-      color: white;
-      font-weight: 600;
+      background: linear-gradient(135deg, #ff6ec4, #7873f5);
+      border-color: #ffffff;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 0 16px rgba(255, 110, 196, 0.5);
+      transform: scale(1.12);
     }
+
+    .interest-btn.selected::after {
+      content: "✓";
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #ffffff;
+      color: #080710;
+      width: 18px;
+      height: 18px;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+    }
+
 
     .btn {
       display: block;

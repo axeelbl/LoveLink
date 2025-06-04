@@ -172,18 +172,6 @@ async def express_interest(interest: InterestCreate):
     return {"message": f"{interest.from_person} ha mostrado interés en {interest.to_person}."}
 
 
-# --- Endpoint para mostrar matches ---
-@app.get("/matches/{name}")
-async def get_matches(name: str):
-    query = """
-    MATCH (a:Person {name: $name})-[:INTERESTED_IN]->(b:Person),
-          (b)-[:INTERESTED_IN]->(a)
-    RETURN b.name AS name, b.age AS age, b.gender AS gender, b.interests AS interests
-    """
-    with driver.session() as session:
-        result = session.run(query, name=name)
-        return [record.data() for record in result]
-
 
 # --- Endpoint para mostrar el camino más corto hacia otra persona ---
 @app.get("/path-to/{from_name}/{to_name}")
@@ -471,3 +459,22 @@ def get_person_by_name(name: str = Path(...)):
             "interests": p.get("interests", []),
             "profile_picture": p.get("profile_picture", "")
         }
+    
+
+
+# --- Endpoint para mostrar matches ---
+@app.get("/matches/{name}")
+async def get_matches(name: str):
+    query = """
+    MATCH (a:Person {name: $name})-[:INTERESTED_IN]->(b:Person),
+      (b)-[:INTERESTED_IN]->(a)
+        RETURN b.name AS name, b.age AS age, b.gender AS gender, b.interests AS interests, b.profile_picture AS profile_picture
+    """
+    with driver.session() as session:
+        result = session.run(query, name=name)
+        return [record.data() for record in result]
+
+# --- Endpoint para ir a matches ---
+@app.get("/matches")
+def matches_page():
+    return FileResponse("templates/matches.html")

@@ -315,7 +315,8 @@ async function searchUsers() {
     }
 
     card.innerHTML = `
-      <img src="${user.profile_picture}" alt="Foto de ${user.name}" class="profile-img">
+      <img src="${user.profile_picture}" alt="Foto de ${user.name}" class="profile-img"
+        onerror="this.onerror=null; this.src='static/default.jpg';">
       <h3>${user.name}</h3>
       <p>${user.email}</p>
       ${relationButtons}
@@ -374,4 +375,8 @@ async function cancelRelationship(toName, type) {
 // Función para ir a mis relaciones
 function goToMyRelationships() {
   window.location.href = "mis-relaciones";
+}
+// Función para ir a mis relaciones
+function goToMatches() {
+  window.location.href = "/matches";
 }
