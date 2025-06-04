@@ -1,19 +1,30 @@
-from database import run_query
+from neo4j import GraphDatabase
+from dotenv import load_dotenv
+import os
 
-def seed_data():
+load_dotenv()
+
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+driver = GraphDatabase.driver(
+    NEO4J_URI,
+    auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+)
+
+def delete_specific_lowercase_emails():
+    emails_to_delete = [
+        "laura2@gmail.com",
+    ]
     query = """
-    MERGE (alice:Person {name: "Alice", age: 30, gender: "F", interests: ["cine", "viatges"]})
-    MERGE (bob:Person {name: "Bob", age: 32, gender: "M", interests: ["esport", "música"]})
-    MERGE (carol:Person {name: "Carol", age: 28, gender: "F", interests: ["lectura", "art"]})
-    MERGE (dave:Person {name: "Dave", age: 35, gender: "M", interests: ["viatges", "tecnologia"]})
-
-    MERGE (alice)-[:FRIEND]->(bob)
-    MERGE (bob)-[:FRIEND]->(carol)
-    MERGE (carol)-[:DATED]->(dave)
-    MERGE (alice)-[:INTERACTED_WITH {type: "like", timestamp: datetime()}]->(carol)
+    MATCH (p:Person)
+    WHERE p.email IN $emails
+    DETACH DELETE p
     """
-    run_query(query)
-    print("Dades inicials creades correctament.")
+    with driver.session() as session:
+        session.run(query, emails=emails_to_delete)
+    print("Usuarios duplicados con emails en minúscula borrados.")
 
 if __name__ == "__main__":
-    seed_data()
+    delete_specific_lowercase_emails()
